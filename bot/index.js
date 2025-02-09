@@ -1,14 +1,76 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { spawn } = require('child_process');
 const fs = require('fs');
+const https = require('https');
 require('dotenv').config();
 
-// Create bot instance
-const bot = new TelegramBot(process.env.BOT_TOKEN, { polling: true });
+// Detect environment
+const isWSL = process.platform === 'linux' && process.env.WSL_DISTRO_NAME;
+
+// Configure bot with better error handling
+const bot = new TelegramBot(process.env.BOT_TOKEN, {
+    polling: false, // We'll start polling after initialization
+    request: {
+        agent: new https.Agent({
+            keepAlive: true,
+            timeout: 60000,
+            rejectUnauthorized: false // This helps with SSL issues in WSL
+        })
+    }
+});
 
 // Track scraping status and projects
 let isScrapingInProgress = false;
 let processedProjects = new Set();
+let pollingRetries = 0;
+const MAX_RETRIES = 3;
+
+// Initialize bot with retry mechanism
+async function initBot() {
+    try {
+        await bot.stopPolling();
+        
+        // Wait a bit before starting polling
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        await bot.startPolling({
+            interval: 2000,
+            params: {
+                timeout: 10
+            }
+        });
+        
+        console.log('Bot polling started successfully');
+        pollingRetries = 0;
+    } catch (error) {
+        console.error('Error starting bot:', error);
+        
+        if (pollingRetries < MAX_RETRIES) {
+            pollingRetries++;
+            console.log(`Retrying bot initialization (attempt ${pollingRetries}/${MAX_RETRIES})...`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            return initBot();
+        } else {
+            console.error('Max retries reached. Please check your network connection and try again.');
+            process.exit(1);
+        }
+    }
+}
+
+// Function to run Python script based on environment
+function runPythonScript(scriptPath) {
+    const pythonCommand = isWSL ? 'python3' : 'python';
+    const pythonProcess = spawn(pythonCommand, [scriptPath]);
+    
+    pythonProcess.on('error', (err) => {
+        console.error('Failed to start Python process:', err);
+        if (err.code === 'ENOENT') {
+            console.error(`${pythonCommand} not found. Please ensure Python is installed and in your PATH`);
+        }
+    });
+    
+    return pythonProcess;
+}
 
 // Function to send project details
 async function sendProjectDetails(project, chatId) {
@@ -92,7 +154,7 @@ function watchProjectFile(chatId) {
         } catch (error) {
             console.error('Error watching project file:', error);
         }
-    }, 1000); // Check every second
+    }, 1000);
 }
 
 // Handle all messages to identify group chat ID
@@ -124,8 +186,8 @@ bot.onText(/\/scrape/, async (msg) => {
         // Start watching the project file
         watchProjectFile(chatId);
                         
-        // Run the selenium scraper
-        const pythonProcess = spawn('python', ['scrapers/selenium_scraper.py']);
+        // Run the selenium scraper with environment detection
+        const pythonProcess = runPythonScript('scrapers/selenium_scraper.py');
             
         // Handle Python script output (for debugging)
         pythonProcess.stdout.on('data', (data) => {
@@ -149,13 +211,18 @@ bot.onText(/\/scrape/, async (msg) => {
                     );
                 } catch (error) {
                     console.error('Error reading final results:', error);
+                    await bot.sendMessage(chatId, '❌ Error reading scraping results');
                 }
+            } else {
+                console.error(`Python process exited with code ${code}`);
+                await bot.sendMessage(chatId, '❌ Scraping failed. Please check the logs.');
             }
         });
 
     } catch (error) {
         isScrapingInProgress = false;
         console.error('Scraper error:', error);
+        await bot.sendMessage(chatId, '❌ An error occurred while scraping');
     }
 });
 
@@ -179,11 +246,37 @@ bot.onText(/\/start/, (msg) => {
     bot.sendMessage(chatId, message);
 });
 
-// Error handling (only log to terminal)
-bot.on('polling_error', (error) => {
+// Handle polling errors with retry logic
+bot.on('polling_error', async (error) => {
     console.error('Polling error:', error);
+    
+    if (error.code === 'EFATAL' || error.code === 'ETIMEDOUT') {
+        console.log('Network error detected, attempting to reconnect...');
+        await initBot();
+    }
 });
 
-console.log('Bot is running...');
+// Initialize the bot
+console.log('Bot is starting...');
+initBot().catch(error => {
+    console.error('Failed to initialize bot:', error);
+    process.exit(1);
+});
+
+// Handle process termination
+process.on('SIGINT', async () => {
+    console.log('Received SIGINT. Cleaning up...');
+    await bot.stopPolling();
+    process.exit(0);
+});
+
+// Handle unexpected errors
+process.on('unhandledRejection', (error) => {
+    console.error('Unhandled rejection:', error);
+});
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught exception:', error);
+});
 
 

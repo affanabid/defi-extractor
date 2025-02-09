@@ -1,16 +1,17 @@
 {
-  "name": "extracter",
+  "name": "defi-extractor",
   "version": "1.0.0",
+  "description": "DeFi project scraper and notifier",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node bot/index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
   "dependencies": {
-    "dotenv": "^16.4.7",
-    "node-telegram-bot-api": "^0.66.0"
+    "node-telegram-bot-api": "^0.64.0",
+    "dotenv": "^16.4.1",
+    "axios": "^1.6.7"
   }
 }

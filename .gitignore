@@ -1,1 +1,25 @@
-/.env
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Project specific
+project_list.json
+data/
+*.deb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

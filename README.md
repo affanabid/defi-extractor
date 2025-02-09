@@ -66,12 +66,15 @@ defi-extractor/
 - **Chrome Browser**
   - Required for Selenium automation
   - Should be compatible with chromedriver
+  - For WSL: Install Chrome in Windows
 
 - **Telegram Account**
   - Needed for bot creation and testing
   - Access to BotFather for setup
 
 ## 🚀 Setup Instructions
+
+### Windows Setup
 
 1. **Clone & Navigate**
    ```bash
@@ -88,19 +91,55 @@ defi-extractor/
    pip install -r requirements.txt
    ```
 
-3. **Environment Configuration**
+### WSL Setup
+
+1. **Prerequisites**
+   ```bash
+   # Update package list
+   sudo apt update
+
+   # Install Python and pip
+   sudo apt install python3 python3-pip
+
+   # Install Node.js (if not already installed)
+   curl -fsSL https://deb.nodesource.com/setup_14.x | sudo -E bash -
+   sudo apt install -y nodejs
+   ```
+
+2. **Clone & Navigate**
+   ```bash
+   git clone https://github.com/affanabid/defi-extractor
+   cd defi-extractor
+   ```
+
+3. **Install Dependencies**
+   ```bash
+   # Node.js dependencies
+   npm install
+
+   # Python dependencies
+   pip3 install -r requirements.txt
+   ```
+
+4. **Chrome Setup for WSL**
+   - Use Chrome installed in Windows
+   - The scraper will automatically detect and use the Windows Chrome installation
+
+### Common Setup Steps
+
+1. **Environment Configuration**
    Create `.env` in root directory:
    ```env
    BOT_TOKEN=your_telegram_bot_token
    ```
 
-4. **Telegram Bot Setup**
+2. **Telegram Bot Setup**
    1. Message [@BotFather](https://t.me/botfather) on Telegram
    2. Create new bot: `/newbot`
    3. Follow prompts and save token
    4. Add token to `.env` file
 
-5. **Launch Application**
+3. **Launch Application**
    ```bash
    node bot/index.js
    ```
@@ -151,8 +190,12 @@ defi-extractor/
 
 ### Common Issues
 - **Polling Conflicts**: Restart bot to clear existing sessions
-- **WSL Network Issues**: Special handling implemented
-- **Chrome/Chromedriver**: Ensure compatible versions
+- **WSL Network Issues**: 
+  - The bot includes special handling for WSL network issues
+  - If persistent errors occur, try running in Windows CMD instead
+- **Chrome/Chromedriver**: 
+  - Ensure Chrome is installed in Windows when using WSL
+  - For WSL users, the scraper will use Windows Chrome automatically
 - **Bot Responsiveness**: Check network connectivity
 
 ### Debug Tips
